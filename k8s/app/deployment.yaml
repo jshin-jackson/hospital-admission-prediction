@@ -1,0 +1,63 @@
+# FastAPI 앱 Deployment
+# Deployment: Pod(컨테이너 실행 단위)를 선언적으로 관리하는 Kubernetes 리소스
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hospital-api
+  namespace: hospital-prediction
+  labels:
+    app: hospital-api
+spec:
+  # 복제본(Pod) 수: 1개로 시작 (필요시 늘릴 수 있음)
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hospital-api
+  template:
+    metadata:
+      labels:
+        app: hospital-api
+      annotations:
+        # Prometheus가 어노테이션 방식으로도 스크래핑할 수 있도록 설정
+        # (ServiceMonitor가 없는 환경의 대안)
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: hospital-api
+          # 로컬 빌드 이미지 사용 (Docker Desktop Kubernetes는 로컬 이미지 직접 사용 가능)
+          image: hospital-api:latest
+          # imagePullPolicy: Never → 원격 레지스트리에서 풀하지 않고 로컬 이미지 사용
+          imagePullPolicy: Never
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: MODEL_PATH
+              value: "models/best_model.pkl"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          # 헬스체크: 컨테이너가 준비됐는지 확인 (실패 시 트래픽 차단)
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          # 생존 확인: 컨테이너가 살아있는지 확인 (실패 시 재시작)
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          # 리소스 제한: 과도한 리소스 사용 방지
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

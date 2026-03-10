@@ -1,0 +1,27 @@
+# ServiceMonitor: Prometheus가 어떤 Service를 스크래핑할지 지정하는 CRD
+# kube-prometheus-stack 설치 시 함께 설치되는 Prometheus Operator가 이 리소스를 감지합니다.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hospital-api
+  # ServiceMonitor는 Prometheus가 설치된 네임스페이스에 만들거나
+  # Prometheus의 namespaceSelector 설정에 맞춰야 합니다.
+  # kube-prometheus-stack 기본 설치 시 monitoring 네임스페이스를 사용합니다.
+  namespace: monitoring
+  labels:
+    # kube-prometheus-stack Helm values의 prometheus.prometheusSpec.serviceMonitorSelector와 일치해야 함
+    release: kube-prometheus-stack
+spec:
+  # 스크래핑할 Service가 있는 네임스페이스 지정
+  namespaceSelector:
+    matchNames:
+      - hospital-prediction
+  # Service 레이블로 대상 선택
+  selector:
+    matchLabels:
+      app: hospital-api
+  endpoints:
+    - port: http          # service.yaml의 ports[].name과 일치
+      path: /metrics      # Prometheus 메트릭 노출 경로
+      interval: 15s       # 15초마다 스크래핑
+      scrapeTimeout: 10s  # 스크래핑 타임아웃

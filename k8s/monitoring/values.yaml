@@ -1,0 +1,86 @@
+# kube-prometheus-stack Helm Chart 커스텀 값
+#
+# 설치 명령:
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm repo update
+#   helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+#     --namespace monitoring --create-namespace \
+#     --values k8s/monitoring/values.yaml
+
+# ─────────────────────────────────────────────
+# Grafana 설정
+# ─────────────────────────────────────────────
+grafana:
+  # Grafana 관리자 비밀번호 (실서비스에서는 Secret으로 관리하세요)
+  adminPassword: "admin123"
+
+  # 서비스 타입: LoadBalancer로 외부 접근 허용
+  # Docker Desktop에서는 localhost:3000 으로 접근 가능
+  service:
+    type: LoadBalancer
+    port: 3000
+
+  # 대시보드 사이드카: ConfigMap에서 대시보드를 자동으로 불러옵니다
+  sidecar:
+    dashboards:
+      enabled: true
+      # 이 레이블이 붙은 ConfigMap을 대시보드로 자동 등록
+      label: grafana_dashboard
+      labelValue: "1"
+      # 모든 네임스페이스에서 ConfigMap을 탐색
+      searchNamespace: ALL
+
+  # 데이터소스 자동 설정 (Prometheus는 kube-prometheus-stack이 자동으로 등록)
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          # 클러스터 내부 Prometheus 서비스 주소
+          url: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
+          isDefault: true
+          access: proxy
+
+# ─────────────────────────────────────────────
+# Prometheus 설정
+# ─────────────────────────────────────────────
+prometheus:
+  prometheusSpec:
+    # 모든 네임스페이스의 ServiceMonitor를 감지하도록 설정
+    # 기본값은 release 레이블이 일치하는 것만 감지하므로 변경 필요
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}
+
+    # 메트릭 보존 기간 (기본 10일)
+    retention: 10d
+
+    # 스크래핑 간격 (기본 30초)
+    scrapeInterval: 15s
+
+  service:
+    type: ClusterIP
+
+# ─────────────────────────────────────────────
+# AlertManager 설정 (선택)
+# ─────────────────────────────────────────────
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    # 알림 보존 기간
+    retention: 120h
+
+# ─────────────────────────────────────────────
+# Node Exporter (시스템 리소스 메트릭)
+# ─────────────────────────────────────────────
+# CPU, 메모리, 디스크, 네트워크 등 OS 레벨 메트릭 자동 수집
+prometheus-node-exporter:
+  enabled: true
+
+# ─────────────────────────────────────────────
+# Kube State Metrics (Kubernetes 리소스 상태)
+# ─────────────────────────────────────────────
+# Pod, Deployment, Service 등 Kubernetes 오브젝트 상태 메트릭 수집
+kube-state-metrics:
+  enabled: true

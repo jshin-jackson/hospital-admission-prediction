@@ -358,6 +358,106 @@ python -m cli.predict ...
 
 ---
 
+## 모니터링 (Grafana + Prometheus on Kubernetes)
+
+API 서버의 요청 수, 응답 시간, 예측값 분포, 모델 상태, 시스템 리소스를 실시간으로 시각화합니다.  
+**Docker Desktop의 내장 Kubernetes**와 **Helm**으로 배포합니다.
+
+### 사전 준비
+
+1. **Docker Desktop** → Settings → Kubernetes → "Enable Kubernetes" 활성화 후 Apply & Restart
+2. **Helm 설치** (macOS):
+   ```bash
+   brew install helm
+   ```
+
+### 배포 순서
+
+#### 1. Docker 이미지 빌드 (로컬)
+
+```bash
+# 프로젝트 루트에서 실행
+docker build -t hospital-api:latest .
+```
+
+#### 2. kube-prometheus-stack 설치 (Prometheus + Grafana + Node Exporter 한 번에)
+
+```bash
+# Helm 저장소 추가
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+
+# monitoring 네임스페이스에 설치 (약 2~3분 소요)
+helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+  --namespace monitoring --create-namespace \
+  --values k8s/monitoring/values.yaml
+```
+
+#### 3. FastAPI 앱 배포
+
+```bash
+# 네임스페이스 + Deployment + Service + ServiceMonitor 순서대로 적용
+kubectl apply -f k8s/app/namespace.yaml
+kubectl apply -f k8s/app/deployment.yaml
+kubectl apply -f k8s/app/service.yaml
+kubectl apply -f k8s/app/servicemonitor.yaml
+```
+
+#### 4. Grafana 대시보드 등록
+
+```bash
+kubectl apply -f k8s/monitoring/dashboard-configmap.yaml
+```
+
+#### 5. 접속 주소 확인
+
+| 서비스 | 포트 포워딩 명령 | 접속 주소 |
+|--------|----------------|-----------|
+| **Grafana** | `kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:3000` | http://localhost:3000 |
+| **Prometheus** | `kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090` | http://localhost:9090 |
+| **FastAPI** | `kubectl port-forward -n hospital-prediction svc/hospital-api 8000:80` | http://localhost:8000 |
+
+Grafana 초기 로그인: **ID** `admin` / **PW** `admin123`
+
+### 수집되는 메트릭
+
+| 메트릭 | 종류 | 설명 |
+|--------|------|------|
+| `hospital_prediction_requests_total` | Counter | 병명별 예측 요청 수 |
+| `hospital_prediction_days` | Histogram | 예측 입원일수 분포 |
+| `hospital_prediction_errors_total` | Counter | 예측 에러 수 |
+| `hospital_model_loaded` | Gauge | 모델 로드 여부 (1=정상) |
+| `hospital_model_info` | Gauge | 사용 중인 모델 종류 |
+| `http_requests_total` | Counter | HTTP 요청 수 (상태코드별) |
+| `http_request_duration_seconds` | Histogram | API 응답 시간 분포 |
+| `node_cpu_seconds_total` | Counter | 노드 CPU 사용률 (Node Exporter) |
+| `node_memory_*` | Gauge | 노드 메모리 사용량 (Node Exporter) |
+| `container_cpu_usage_seconds_total` | Counter | Pod CPU 사용률 |
+| `container_memory_working_set_bytes` | Gauge | Pod 메모리 사용량 |
+
+### Grafana 대시보드 구성
+
+자동으로 등록되는 **"Hospital Admission Prediction"** 대시보드에는 4개 섹션이 있습니다:
+
+- **📊 API 요청 현황** — 총 요청 수, 에러 수, 평균 응답시간(P50), 에러율
+- **🏥 예측 분포 현황** — 입원일수 히스토그램, 평균 예측일수, 병명별 요청 분포
+- **🤖 모델 정보** — 모델 로드 상태, 사용 중인 모델 종류
+- **💻 시스템 리소스** — 노드 CPU/메모리, Pod CPU/메모리 사용량
+
+### 정리 (삭제)
+
+```bash
+# FastAPI 앱 삭제
+kubectl delete -f k8s/app/
+
+# 모니터링 스택 삭제
+kubectl delete -f k8s/monitoring/dashboard-configmap.yaml
+helm uninstall kube-prometheus-stack -n monitoring
+kubectl delete namespace monitoring hospital-prediction
+```
+
+---
+
 ## 프로젝트 구조
 
 ```
@@ -375,10 +475,11 @@ hospital-admission-prediction/
 │   │   ├── train.py          # 모델 학습 + MLflow 실험 기록
 │   │   └── evaluate.py       # 성능 평가 + 그래프 생성
 │   └── api/
-│       ├── main.py           # FastAPI 서버
+│       ├── main.py           # FastAPI 서버 (Prometheus 계측 포함)
+│       ├── metrics.py        # 커스텀 Prometheus 메트릭 정의
 │       ├── schemas.py        # 입력/출력 데이터 형식 정의
 │       └── routers/
-│           └── predict.py    # /predict 엔드포인트
+│           └── predict.py    # /predict 엔드포인트 (메트릭 기록)
 ├── web/
 │   ├── streamlit/
 │   │   └── app.py            # Streamlit 대시보드 UI
@@ -392,6 +493,16 @@ hospital-admission-prediction/
 │       │   └── components/    # PredictForm, PredictResult
 │       ├── vite.config.ts     # Vite 설정 (프록시, URL 출력)
 │       └── package.json
+├── k8s/
+│   ├── app/
+│   │   ├── namespace.yaml    # hospital-prediction 네임스페이스
+│   │   ├── deployment.yaml   # FastAPI 앱 Deployment
+│   │   ├── service.yaml      # ClusterIP Service
+│   │   └── servicemonitor.yaml # Prometheus 스크래핑 설정
+│   └── monitoring/
+│       ├── values.yaml       # kube-prometheus-stack Helm 커스텀 값
+│       └── dashboard-configmap.yaml # Grafana 대시보드 자동 등록
+├── Dockerfile                # FastAPI 앱 컨테이너 이미지
 ├── cli/
 │   └── predict.py            # 터미널용 예측 스크립트
 ├── tests/                    # pytest 자동화 테스트

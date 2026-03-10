@@ -1,0 +1,9 @@
+# 병원 입원 예측 시스템 전용 네임스페이스
+# 모든 앱 리소스(Deployment, Service 등)는 이 네임스페이스 안에서 관리됩니다.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hospital-prediction
+  labels:
+    # Prometheus가 이 네임스페이스의 ServiceMonitor를 감지하도록 레이블 설정
+    monitoring: "true"

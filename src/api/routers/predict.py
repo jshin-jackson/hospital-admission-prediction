@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
 
+from src.api.metrics import PREDICTION_DAYS, PREDICTION_ERRORS, PREDICTION_REQUESTS
 from src.api.schemas import PredictRequest, PredictResponse
 from src.features.pipeline import prepare_dataframe
 
@@ -38,7 +39,15 @@ async def predict(request: Request, body: PredictRequest) -> PredictResponse:
     try:
         predicted = float(pipeline.predict(df)[0])
     except Exception as exc:
+        # 예측 실패 시 에러 카운터 증가
+        PREDICTION_ERRORS.inc()
         raise HTTPException(status_code=500, detail=f"예측 실패: {exc}") from exc
+
+    # ── 커스텀 Prometheus 메트릭 기록 ─────────────────────────────────────
+    # 병명별 예측 요청 카운터 증가
+    PREDICTION_REQUESTS.labels(diagnosis=body.diagnosis).inc()
+    # 예측 입원일수를 히스토그램에 기록 (분포 파악용)
+    PREDICTION_DAYS.observe(predicted)
 
     return PredictResponse(
         predicted_days=round(predicted, 2),
