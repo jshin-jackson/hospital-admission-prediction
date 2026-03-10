@@ -1,0 +1,35 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# 모델 파일 (용량이 크므로 제외)
+*.pkl
+
+# 학습 데이터 (용량이 크므로 제외)
+data/synthetic/
+data/raw/
+
+# 환경 변수 (보안 정보 포함)
+.env
+
+# MLflow 실험 기록 (로컬 전용)
+mlruns/
+mlflow.db
+
+# 시각화 결과물
+reports/
+
+# IDE / 에디터
+.cursor/
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
