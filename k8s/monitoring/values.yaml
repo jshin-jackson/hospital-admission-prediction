@@ -30,17 +30,8 @@ grafana:
       # 모든 네임스페이스에서 ConfigMap을 탐색
       searchNamespace: ALL
 
-  # 데이터소스 자동 설정 (Prometheus는 kube-prometheus-stack이 자동으로 등록)
-  datasources:
-    datasources.yaml:
-      apiVersion: 1
-      datasources:
-        - name: Prometheus
-          type: prometheus
-          # 클러스터 내부 Prometheus 서비스 주소
-          url: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
-          isDefault: true
-          access: proxy
+  # 데이터소스: kube-prometheus-stack이 Prometheus를 기본 데이터소스로 자동 등록함
+  # 별도 설정 불필요 — 중복 정의 시 "Only one datasource can be default" 에러 발생
 
 # ─────────────────────────────────────────────
 # Prometheus 설정

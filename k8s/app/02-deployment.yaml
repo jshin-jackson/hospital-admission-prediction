@@ -8,7 +8,6 @@ metadata:
   labels:
     app: hospital-api
 spec:
-  # 복제본(Pod) 수: 1개로 시작 (필요시 늘릴 수 있음)
   replicas: 1
   selector:
     matchLabels:
@@ -18,18 +17,18 @@ spec:
       labels:
         app: hospital-api
       annotations:
-        # Prometheus가 어노테이션 방식으로도 스크래핑할 수 있도록 설정
-        # (ServiceMonitor가 없는 환경의 대안)
         prometheus.io/scrape: "true"
         prometheus.io/port: "8000"
         prometheus.io/path: "/metrics"
     spec:
       containers:
         - name: hospital-api
-          # 로컬 빌드 이미지 사용 (Docker Desktop Kubernetes는 로컬 이미지 직접 사용 가능)
-          image: hospital-api:latest
-          # imagePullPolicy: Never → 원격 레지스트리에서 풀하지 않고 로컬 이미지 사용
-          imagePullPolicy: Never
+          # 로컬 레지스트리에서 이미지 풀
+          # host.docker.internal: Kubernetes 노드에서 macOS 호스트를 가리키는 DNS
+          # 5001 포트로 실행 중인 로컬 registry:2 컨테이너에서 이미지를 가져옴
+          image: host.docker.internal:5001/hospital-api:latest
+          # IfNotPresent: 노드에 이미지가 없을 때만 풀 (한 번 풀면 캐시 사용)
+          imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 8000
@@ -46,13 +45,15 @@ spec:
               port: 8000
             initialDelaySeconds: 10
             periodSeconds: 10
+            failureThreshold: 5
           # 생존 확인: 컨테이너가 살아있는지 확인 (실패 시 재시작)
           livenessProbe:
             httpGet:
               path: /health
               port: 8000
-            initialDelaySeconds: 15
+            initialDelaySeconds: 20
             periodSeconds: 20
+            failureThreshold: 3
           # 리소스 제한: 과도한 리소스 사용 방지
           resources:
             requests:
@@ -61,3 +62,8 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
+          # 모델 파일은 Docker 이미지 빌드 시 COPY models/ ./models/ 로 포함됨
+          # 모델을 교체하려면 이미지를 재빌드하고 Deployment를 롤아웃합니다:
+          #   docker build -t host.docker.internal:5001/hospital-api:latest .
+          #   docker push host.docker.internal:5001/hospital-api:latest
+          #   kubectl rollout restart deployment/hospital-api -n hospital-prediction
