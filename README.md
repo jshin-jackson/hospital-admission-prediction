@@ -268,6 +268,38 @@ curl -X POST http://localhost:8000/predict \
 }
 ```
 
+#### 방법 C: Web UI로 예측 (3가지 중 선택)
+
+> FastAPI 서버가 실행 중인 상태에서 아래 중 하나를 실행하세요.
+
+**Streamlit** (포트 8501)
+```bash
+pip install streamlit
+streamlit run web/streamlit/app.py
+```
+→ [http://localhost:8501](http://localhost:8501)
+
+**Gradio** (포트 7860)
+```bash
+pip install gradio
+python web/gradio/app.py
+```
+→ [http://localhost:7860](http://localhost:7860)
+
+**React** (포트 3000)
+```bash
+cd web/react
+npm install
+npm run dev
+```
+→ [http://localhost:3000](http://localhost:3000)
+
+| UI | 특징 | 포트 |
+|----|------|------|
+| Streamlit | Python만으로 대시보드 구성, 사이드바 모델 정보 표시 | 8501 |
+| Gradio | AI 데모에 특화, 예시 데이터 클릭으로 자동 입력 | 7860 |
+| React | TypeScript 기반 모던 웹앱, 반응형 레이아웃 | 3000 |
+
 ---
 
 ## 입력 가능한 값 정리
@@ -297,11 +329,11 @@ pytest tests/ -v
 ## 전체 실행 순서 요약
 
 ```
-[터미널 1]                         [터미널 2]           [터미널 3]
-source .venv/bin/activate          MLflow 서버 실행     FastAPI 서버 실행
-python -m src.data.generate    →   mlflow server    →   uvicorn src.api.main:app
-python -m src.models.train
-python -m cli.predict ...
+[터미널 1]                         [터미널 2]           [터미널 3]          [터미널 4 중 택 1]
+source .venv/bin/activate          MLflow 서버 실행     FastAPI 서버 실행   Web UI 실행
+python -m src.data.generate    →   mlflow server    →  uvicorn ...      →  streamlit run web/streamlit/app.py
+python -m src.models.train                                                  python web/gradio/app.py
+python -m cli.predict ...                                                   npm run dev (web/react/)
 ```
 
 ---
