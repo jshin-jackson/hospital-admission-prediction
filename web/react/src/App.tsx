@@ -156,8 +156,8 @@ export default function App() {
         <section className="app-section">
           <PredictForm
             values={formValues}
-            onChange={setFormValues}  {/* 입력 변경 시 상태 업데이트 */}
-            onSubmit={handlePredict}  {/* 예측 버튼 클릭 시 예측 실행 */}
+            onChange={setFormValues}
+            onSubmit={handlePredict}
             isLoading={isLoading}
           />
         </section>

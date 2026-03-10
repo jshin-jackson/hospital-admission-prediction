@@ -46,7 +46,7 @@
           ↓
 4. 예측 사용
    저장된 모델로 새로운 환자 정보 → 입원일수 예측
-   (터미널 또는 API 서버로 사용)
+   (CLI / API 서버 / Web UI 중 선택)
 ```
 
 ### 이 프로젝트에서 배울 수 있는 것
@@ -56,30 +56,29 @@
 - **모델 비교**: 여러 알고리즘을 자동으로 비교해 최적 모델 선택 (GridSearchCV)
 - **실험 추적**: 학습 결과를 기록하고 비교하는 방법 (MLflow)
 - **API 서버**: 모델을 웹 서비스로 배포하는 방법 (FastAPI)
+- **Web UI**: Python(Streamlit, Gradio)과 TypeScript(React)로 인터페이스 구축
 - **프로젝트 구조**: 실제 ML 프로젝트에서 사용하는 폴더 구조와 코드 분리
 
 ---
 
-## 이 시스템이 하는 일
+## 시스템 구조
 
 ```
-환자 정보 입력
-(나이, 성별, 병명 등)
-       ↓
-  머신러닝 모델
-       ↓
-예상 입원일수 출력
-```
+FastAPI 백엔드 (포트 8000) ← 공통 예측 API
+         ↑
+         ├── Streamlit  (포트 8501)  — Python 대시보드
+         ├── Gradio     (포트 7860)  — AI 데모 UI
+         └── React      (포트 3000)  — 모던 웹앱
 
-예측 방법은 두 가지입니다.
-- **터미널(CLI)**: 명령어로 바로 예측
-- **REST API**: 다른 서비스와 연동 가능한 웹 서버
+MLflow (포트 5000) — 실험 추적 및 모델 관리
+```
 
 ---
 
 ## 시작하기 전에 필요한 것
 
 - Python 3.11
+- Node.js 18 이상 (React UI 사용 시)
 - Homebrew (macOS 패키지 관리자)
 
 ---
@@ -270,29 +269,37 @@ curl -X POST http://localhost:8000/predict \
 
 #### 방법 C: Web UI로 예측 (3가지 중 선택)
 
-> FastAPI 서버가 실행 중인 상태에서 아래 중 하나를 실행하세요.
+> FastAPI 서버(방법 B)가 실행 중인 상태에서 아래 중 하나를 실행하세요.
 
 **Streamlit** (포트 8501)
 ```bash
-pip install streamlit
 streamlit run web/streamlit/app.py
 ```
 → [http://localhost:8501](http://localhost:8501)
 
 **Gradio** (포트 7860)
 ```bash
-pip install gradio
 python web/gradio/app.py
 ```
 → [http://localhost:7860](http://localhost:7860)
 
-**React** (포트 3000)
+**React** (포트 3000) — 최초 1회 `npm install` 필요
 ```bash
 cd web/react
 npm install
 npm run dev
 ```
-→ [http://localhost:3000](http://localhost:3000)
+
+서버 시작 완료 시 터미널에 아래와 같이 출력됩니다:
+```
+──────────────────────────────────────────────────
+  🏥  병원 입원일수 예측 Web UI 실행 완료
+──────────────────────────────────────────────────
+  ➜  Local:    http://localhost:3000/
+  ➜  API 서버: http://localhost:8000/docs
+  ➜  MLflow:   http://localhost:5000
+──────────────────────────────────────────────────
+```
 
 | UI | 특징 | 포트 |
 |----|------|------|
@@ -329,11 +336,13 @@ pytest tests/ -v
 ## 전체 실행 순서 요약
 
 ```
-[터미널 1]                         [터미널 2]           [터미널 3]          [터미널 4 중 택 1]
-source .venv/bin/activate          MLflow 서버 실행     FastAPI 서버 실행   Web UI 실행
-python -m src.data.generate    →   mlflow server    →  uvicorn ...      →  streamlit run web/streamlit/app.py
-python -m src.models.train                                                  python web/gradio/app.py
-python -m cli.predict ...                                                   npm run dev (web/react/)
+[터미널 1]                    [터미널 2]        [터미널 3]           [터미널 4 — 택 1]
+가상환경 활성화                MLflow 서버       FastAPI 서버         Web UI
+─────────────────────────     ───────────────   ──────────────────   ─────────────────────────────
+source .venv/bin/activate  →  mlflow server  →  uvicorn src.api   →  streamlit run web/streamlit/app.py
+python -m src.data.generate                     main:app --reload    python web/gradio/app.py
+python -m src.models.train                                           cd web/react && npm run dev
+python -m cli.predict ...
 ```
 
 ---
@@ -359,12 +368,25 @@ hospital-admission-prediction/
 │       ├── schemas.py        # 입력/출력 데이터 형식 정의
 │       └── routers/
 │           └── predict.py    # /predict 엔드포인트
+├── web/
+│   ├── streamlit/
+│   │   └── app.py            # Streamlit 대시보드 UI
+│   ├── gradio/
+│   │   └── app.py            # Gradio 데모 UI
+│   └── react/                # React + Vite + TypeScript 웹앱
+│       ├── src/
+│       │   ├── App.tsx        # 메인 컴포넌트 (상태 관리)
+│       │   ├── types/         # TypeScript 타입 정의
+│       │   ├── api/           # FastAPI 연동 fetch 함수
+│       │   └── components/    # PredictForm, PredictResult
+│       ├── vite.config.ts     # Vite 설정 (프록시, URL 출력)
+│       └── package.json
 ├── cli/
 │   └── predict.py            # 터미널용 예측 스크립트
-├── tests/                    # 자동화 테스트 (pytest)
+├── tests/                    # pytest 자동화 테스트
 ├── models/                   # 저장된 모델 파일 (.pkl)
 ├── reports/figures/          # 평가 그래프 이미지
 ├── mlruns/                   # MLflow 실험 기록
-├── requirements.txt          # 필요한 패키지 목록
+├── requirements.txt          # Python 패키지 목록
 └── .env.example              # 환경 변수 설정 예시
 ```

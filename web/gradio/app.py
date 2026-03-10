@@ -156,11 +156,8 @@ EXAMPLES = [
 # ─────────────────────────────────────────────
 
 # gr.Blocks: 자유롭게 레이아웃을 구성할 수 있는 컨테이너
-with gr.Blocks(
-    title="병원 입원일수 예측",
-    theme=gr.themes.Soft(),  # 부드러운 테마 적용
-    css=".gradio-container { max-width: 900px !important; }",
-) as demo:
+# Gradio 6.0부터 theme, css는 launch()에 전달해야 합니다
+with gr.Blocks(title="병원 입원일수 예측") as demo:
 
     # ── 상단 헤더 ──────────────────────────────
     gr.Markdown("# 🏥 병원 입원일수 예측 시스템")
@@ -177,7 +174,7 @@ with gr.Blocks(
         max_lines=1,
     )
 
-    gr.Divider()
+    gr.Markdown("---")
 
     # ── 입력 폼: 2열 레이아웃 ──────────────────
     with gr.Row():
@@ -247,7 +244,7 @@ with gr.Blocks(
     # ── 예측 버튼 ──────────────────────────────
     predict_btn = gr.Button("🔍 입원일수 예측하기", variant="primary", size="lg")
 
-    gr.Divider()
+    gr.Markdown("---")
 
     # ── 결과 출력 영역 ─────────────────────────
     gr.Markdown("### 📊 예측 결과")
@@ -289,7 +286,9 @@ with gr.Blocks(
 # ─────────────────────────────────────────────
 if __name__ == "__main__":
     demo.launch(
-        server_port=7860,   # Gradio 기본 포트
-        share=False,        # True로 바꾸면 공개 URL 생성 (Hugging Face 터널)
-        show_error=True,    # 에러 메시지를 UI에 표시
+        server_port=7860,                                          # Gradio 기본 포트
+        share=False,                                               # True로 바꾸면 공개 URL 생성
+        show_error=True,                                           # 에러 메시지를 UI에 표시
+        theme=gr.themes.Soft(),                                    # Gradio 6.0: theme은 launch()에 전달
+        css=".gradio-container { max-width: 900px !important; }",  # Gradio 6.0: css도 launch()에 전달
     )
