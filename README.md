@@ -180,6 +180,18 @@ python -m src.models.train
 - `models/best_model.pkl` — 최적 모델 파일 저장
 - [http://localhost:5000](http://localhost:5000) 에서 4개 모델 성능 비교 확인 가능
 
+#### MLflow 실험 결과 화면
+
+![MLflow 실험 실행 목록](docs/images/mlflow-runs.png)
+
+> **실험 추적 화면**: XGBoost, GradientBoosting, RandomForest, DecisionTree 4개 모델의 학습 결과가 자동으로 기록됩니다.  
+> 각 행을 클릭하면 RMSE, MAE, R² 등 상세 지표와 하이퍼파라미터를 확인할 수 있습니다.
+
+![MLflow 모델 레지스트리](docs/images/mlflow-models.png)
+
+> **모델 레지스트리 화면**: 학습된 모델들이 버전별로 관리됩니다.  
+> `pipeline` 태그가 붙은 모델은 전처리(StandardScaler + OneHotEncoder)와 예측 모델이 하나로 묶인 파이프라인입니다.
+
 ---
 
 ### 6단계. 모델 성능 확인 (선택)
@@ -309,7 +321,9 @@ npm run dev
 
 #### React UI 화면
 
-![React Web UI 스크린샷](docs/images/react-ui.png)
+![React Web UI 스크린샷](docs/images/react-ui-prediction.png)
+
+> **실제 동작 화면**: 48세 여성 환자, 폐렴(pneumonia), 검사 이상 있음 → **예측 결과 4.8일 (반올림 5일)**
 
 | 영역 | 설명 |
 |------|------|
@@ -443,6 +457,36 @@ Grafana 초기 로그인: **ID** `admin` / **PW** `admin123`
 - **🏥 예측 분포 현황** — 입원일수 히스토그램, 평균 예측일수, 병명별 요청 분포
 - **🤖 모델 정보** — 모델 로드 상태, 사용 중인 모델 종류
 - **💻 시스템 리소스** — 노드 CPU/메모리, Pod CPU/메모리 사용량
+
+#### 📊 API 요청 현황 대시보드
+
+![Grafana API 요청 대시보드](docs/images/grafana-api-dashboard.png)
+
+> **실제 부하 테스트 결과**: 총 670건의 예측 요청이 전송된 상태입니다.
+>
+> | 패널 | 내용 |
+> |------|------|
+> | 총 예측 요청 수 (670) | 지금까지 누적된 `/predict` 요청 건수 |
+> | 총 예측 에러 수 (0) | 에러 없이 모두 정상 처리됨 |
+> | 평균 응답 시간 (50ms) | P50 기준 API 응답 속도 |
+> | 초당 요청 수 그래프 | 병명별로 색이 구분된 RPS 추이 (폐렴·당뇨 등 7가지) |
+> | 예측 입원일수 분포 | 히스토그램 버킷으로 1일~30일 분포 시각화 |
+> | 병명별 누적 요청 수 | 우측 범례에서 각 병명의 누적 비율 확인 |
+
+#### 💻 시스템 리소스 대시보드
+
+![Grafana 시스템 리소스 대시보드](docs/images/grafana-system-resources.png)
+
+> **Kubernetes 노드 및 Pod 리소스 모니터링** 화면입니다.
+>
+> | 패널 | 내용 |
+> |------|------|
+> | 모델 상태 (초록: 정상) | `hospital_model_loaded` 게이지 — 1이면 모델 정상 로드 |
+> | 사용 모델 (GradientBoostingRegressor) | `hospital_model_info` 레이블로 현재 모델 종류 표시 |
+> | Node CPU 사용률 | 4개 Kubernetes 노드 전체의 CPU 사용률 추이 |
+> | Node 메모리 사용량 | 노드별 메모리 사용량 (Node Exporter 수집) |
+> | Pod 컨테이너 메모리 | hospital-api Pod의 실시간 메모리 사용량 |
+> | Pod CPU 사용률 | hospital-api Pod의 실시간 CPU 사용률 |
 
 ### 정리 (삭제)
 
